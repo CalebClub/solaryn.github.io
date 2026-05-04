@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Solaryn Staff Manager</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">Solaryn Safety System</p>
+      <h1>Staff Credential Manager</h1>
+    </div>
+    <button id="logout" class="btn btn-danger" type="button">Lock & Logout</button>
+  </header>
+
+  <nav class="tabs" aria-label="Primary">
+    <a class="tab" href="dashboard.html">Dashboard</a>
+    <a class="tab" href="generator.html">Password Generator</a>
+    <a class="tab" href="list.html">Staff Password List</a>
+    <a class="tab active" href="manager.html">Staff Manager</a>
+    <a class="tab" href="backup.html">Backup & Restore</a>
+  </nav>
+
+  <main class="layout two-col">
+    <section class="panel">
+      <h2>Edit Single Staff Record</h2>
+      <form id="manager-form" class="stack" autocomplete="off">
+        <label for="staff-select">Select Staff</label>
+        <select id="staff-select" name="staff-select" required></select>
+
+        <label for="manager-username">Username</label>
+        <input id="manager-username" name="manager-username" required />
+
+        <label for="manager-position">Position</label>
+        <input id="manager-position" name="manager-position" required />
+
+        <label for="manager-password">Password</label>
+        <input id="manager-password" name="manager-password" required />
+
+        <label for="manager-challenge">Challenge Code</label>
+        <input id="manager-challenge" name="manager-challenge" required />
+
+        <p id="challenge-expiry" class="hint"></p>
+
+        <div class="row">
+          <button id="regen-btn" type="button" class="btn">Generate New Password</button>
+          <button id="regen-challenge-btn" type="button" class="btn">Generate Challenge</button>
+          <button id="rotate-both-btn" type="button" class="btn">Rotate Password + Challenge</button>
+          <button type="submit" class="btn btn-primary">Save Changes</button>
+        </div>
+      </form>
+
+      <div class="divider"></div>
+
+      <div class="row">
+        <button id="deactivate-btn" class="btn btn-danger" type="button">Mark Inactive</button>
+        <button id="activate-btn" class="btn" type="button">Mark Active</button>
+      </div>
+
+      <p id="manager-message" class="message" aria-live="polite"></p>
+    </section>
+
+    <section class="panel">
+      <h2>Audit Trail</h2>
+      <ul id="audit-list" class="audit-list"></ul>
+    </section>
+  </main>
+
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/manager.js"></script>
+</body>
+</html>

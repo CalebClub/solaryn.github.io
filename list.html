@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Solaryn Staff Password List</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">Solaryn Safety System</p>
+      <h1>Staff Password List</h1>
+    </div>
+    <button id="logout" class="btn btn-danger" type="button">Lock & Logout</button>
+  </header>
+
+  <nav class="tabs" aria-label="Primary">
+    <a class="tab" href="dashboard.html">Dashboard</a>
+    <a class="tab" href="generator.html">Password Generator</a>
+    <a class="tab active" href="list.html">Staff Password List</a>
+    <a class="tab" href="manager.html">Staff Manager</a>
+    <a class="tab" href="backup.html">Backup & Restore</a>
+  </nav>
+
+  <main class="layout">
+    <section class="panel">
+      <h2>Live Staff Credential Table</h2>
+      <p class="muted">Edit username, position, and password directly. Changes are saved instantly when you press update.</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Username</th>
+              <th>Position</th>
+              <th>Password</th>
+              <th>Challenge Code</th>
+              <th>Status</th>
+              <th>Updated</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="staff-table"></tbody>
+        </table>
+      </div>
+      <p id="list-message" class="message" aria-live="polite"></p>
+    </section>
+  </main>
+
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/list.js"></script>
+</body>
+</html>

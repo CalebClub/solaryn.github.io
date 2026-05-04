@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Solaryn Staff Password Generator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">Solaryn Safety System</p>
+      <h1>Password Generator</h1>
+    </div>
+    <button id="logout" class="btn btn-danger" type="button">Lock & Logout</button>
+  </header>
+
+  <nav class="tabs" aria-label="Primary">
+    <a class="tab" href="dashboard.html">Dashboard</a>
+    <a class="tab active" href="generator.html">Password Generator</a>
+    <a class="tab" href="list.html">Staff Password List</a>
+    <a class="tab" href="manager.html">Staff Manager</a>
+    <a class="tab" href="backup.html">Backup & Restore</a>
+  </nav>
+
+  <main class="layout two-col">
+    <section class="panel">
+      <h2>Generate 20-Character Staff Password</h2>
+      <p class="muted">Creates complicated mixed-character passphrases with high entropy.</p>
+      <div class="generator-box">
+        <p id="generated-password" class="password-output">Press Generate</p>
+        <div class="row">
+          <button id="generate-btn" class="btn btn-primary" type="button">Generate New Password</button>
+          <button id="copy-btn" class="btn" type="button">Copy Password</button>
+        </div>
+      </div>
+      <p id="generator-message" class="message" aria-live="polite"></p>
+    </section>
+
+    <section class="panel">
+      <h2>Assign Password To Staff</h2>
+      <form id="assign-form" class="stack" autocomplete="off">
+        <label for="username">Username</label>
+        <input id="username" name="username" required placeholder="e.g. ZeaoAdmin" />
+
+        <label for="position">Position</label>
+        <input id="position" name="position" required placeholder="e.g. Discord Moderator" />
+
+        <label for="password">Password</label>
+        <input id="password" name="password" required />
+
+        <button type="submit" class="btn btn-primary">Save Staff Credential</button>
+      </form>
+    </section>
+  </main>
+
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/generator.js"></script>
+</body>
+</html>
