@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Solaryn Safety Dashboard</title>
+<title>Solaryn Dashboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
@@ -12,7 +12,7 @@
 <body>
   <header class="topbar">
     <div>
-      <p class="eyebrow">Solaryn Safety System</p>
+      <p class="eyebrow">SSS</p>
       <h1>Security Dashboard</h1>
     </div>
     <button id="logout" class="btn btn-danger" type="button">Lock & Logout</button>
@@ -23,12 +23,12 @@
     <a class="tab" href="generator.html">Password Generator</a>
     <a class="tab" href="list.html">Staff Password List</a>
     <a class="tab" href="manager.html">Staff Manager</a>
-    <a class="tab" href="backup.html">Backup & Restore</a>
+    <a class="tab" href="backup.html">Backups</a>
   </nav>
 
   <main class="layout">
     <section class="panel">
-      <h2>System Overview</h2>
+      <h2>Overview</h2>
       <div class="stats-grid">
         <article class="stat-card">
           <p class="muted">Staff Records</p>
@@ -54,7 +54,7 @@
     </section>
 
     <section class="panel">
-      <h2>Recent Audit Events</h2>
+      <h2>Recent Events</h2>
       <ul id="audit-preview" class="audit-list"></ul>
     </section>
   </main>
