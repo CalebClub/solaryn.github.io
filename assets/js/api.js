@@ -1,14 +1,28 @@
 (function () {
   "use strict";
 
-  // Configuration - adjust this to match your backend URL
-  var BACKEND_URL = localStorage.getItem("solaryn_backend_url") || "postgresql://staff_j1n0_user:EKLbzr97mQh9btU8JQ1EMfT9zvdQumh6@dpg-d7skp7ok1i2s739s6t9g-a.virginia-postgres.render.com/staff_j1n0";
+  // Configuration - set your Railway URL here, e.g. https://your-service.up.railway.app
+  var DEFAULT_BACKEND_URL = "http://localhost:8787";
+  var storedUrl = localStorage.getItem("solaryn_backend_url");
+  var BACKEND_URL = normalizeBackendUrl(storedUrl) || DEFAULT_BACKEND_URL;
   var TOKEN_KEY = "solaryn_backend_token";
   var TOKEN_EXPIRY_KEY = "solaryn_backend_token_expiry";
 
+  function normalizeBackendUrl(url) {
+    var value = String(url || "").trim();
+    if (!/^https?:\/\//i.test(value)) {
+      return "";
+    }
+    return value.replace(/\/+$/, "");
+  }
+
   function setBackendUrl(url) {
-    localStorage.setItem("solaryn_backend_url", url);
-    BACKEND_URL = url;
+    var normalized = normalizeBackendUrl(url);
+    if (!normalized) {
+      throw new Error("Backend URL must start with http:// or https://");
+    }
+    localStorage.setItem("solaryn_backend_url", normalized);
+    BACKEND_URL = normalized;
   }
 
   function getBackendUrl() {
