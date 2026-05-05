@@ -11,6 +11,7 @@
   var NUM = "23456789";
   var SYM = "!@#$%^&*()_-+=<>?";
   var CHALLENGE = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  var remoteBootstrapPromise = null;
 
   function safeParse(raw, fallback) {
     if (!raw) {
@@ -23,40 +24,161 @@
     }
   }
 
-  function getStaff() {
-    var staff = safeParse(localStorage.getItem(STAFF_KEY), []);
-    var changed = false;
-    var normalized = staff.map(function (record) {
-      var migrated = normalizeRecord(record);
-      if (JSON.stringify(migrated) !== JSON.stringify(record)) {
-        changed = true;
-      }
-      return migrated;
-    });
-    if (changed) {
-      saveStaff(normalized);
-      addAudit("system.migrate", "Applied challenge-code defaults to legacy records.");
-    }
-    return normalized;
+  function hasBackendAccess() {
+    return Boolean(window.SolarynAPI && window.SolarynAPI.getToken());
   }
 
-  function saveStaff(staff) {
-    localStorage.setItem(STAFF_KEY, JSON.stringify(staff));
+  function readCachedStaff() {
+    return safeParse(localStorage.getItem(STAFF_KEY), []).map(normalizeRecord);
   }
 
-  function getAudit() {
+  function writeCachedStaff(staff) {
+    localStorage.setItem(STAFF_KEY, JSON.stringify(staff.map(normalizeRecord)));
+  }
+
+  function readCachedAudit() {
     return safeParse(localStorage.getItem(AUDIT_KEY), []);
   }
 
+  function writeCachedAudit(audit) {
+    localStorage.setItem(AUDIT_KEY, JSON.stringify(audit.slice(0, 400)));
+  }
+
+  function mergeAuditEntries(entries) {
+    var seen = Object.create(null);
+    return entries
+      .filter(function (entry) {
+        if (!entry || !entry.id || seen[entry.id]) {
+          return false;
+        }
+        seen[entry.id] = true;
+        return true;
+      })
+      .sort(function (left, right) {
+        return new Date(right.at).getTime() - new Date(left.at).getTime();
+      });
+  }
+
+  function saveStaff(staff) {
+    writeCachedStaff(staff);
+  }
+
+  function cacheRemoteState(staff, audit) {
+    var normalizedStaff = Array.isArray(staff) ? staff.map(normalizeRecord) : readCachedStaff();
+    var normalizedAudit = Array.isArray(audit) ? mergeAuditEntries(audit) : readCachedAudit();
+
+    if (Array.isArray(staff)) {
+      writeCachedStaff(normalizedStaff);
+    }
+    if (Array.isArray(audit)) {
+      writeCachedAudit(normalizedAudit);
+    }
+
+    return {
+      staff: normalizedStaff,
+      audit: normalizedAudit,
+    };
+  }
+
+  function fetchRemoteState() {
+    return Promise.all([
+      window.SolarynAPI.getStaffFromBackend(),
+      window.SolarynAPI.getAuditFromBackend(),
+    ]).then(function (results) {
+      return cacheRemoteState(results[0] || [], results[1] || []);
+    });
+  }
+
+  function ensureRemoteState() {
+    if (!hasBackendAccess()) {
+      return Promise.resolve({
+        staff: readCachedStaff(),
+        audit: readCachedAudit(),
+      });
+    }
+
+    if (remoteBootstrapPromise) {
+      return remoteBootstrapPromise.then(function () {
+        return fetchRemoteState().catch(function () {
+          return {
+            staff: readCachedStaff(),
+            audit: readCachedAudit(),
+          };
+        });
+      });
+    }
+
+    remoteBootstrapPromise = fetchRemoteState()
+      .then(function (results) {
+        var remoteStaff = results.staff;
+        var remoteAudit = results.audit;
+        var cachedStaff = readCachedStaff();
+        var cachedAudit = readCachedAudit();
+        var shouldSeedRemote = (!remoteStaff.length && cachedStaff.length) || (!remoteAudit.length && cachedAudit.length);
+
+        if (!shouldSeedRemote) {
+          return results;
+        }
+
+        return window.SolarynAPI.importSnapshotToBackend({
+          staff: cachedStaff,
+          audit: cachedAudit,
+          replace: false,
+        }).then(function (snapshot) {
+          return cacheRemoteState(snapshot.staff || [], snapshot.audit || []);
+        });
+      })
+      .catch(function () {
+        return {
+          staff: readCachedStaff(),
+          audit: readCachedAudit(),
+        };
+      });
+
+    return remoteBootstrapPromise.then(function () {
+      return fetchRemoteState().catch(function () {
+        return {
+          staff: readCachedStaff(),
+          audit: readCachedAudit(),
+        };
+      });
+    });
+  }
+
+  function getStaff() {
+    return ensureRemoteState().then(function (state) {
+      return state.staff;
+    });
+  }
+
+  function getAudit() {
+    return ensureRemoteState().then(function (state) {
+      return state.audit;
+    });
+  }
+
   function addAudit(action, details) {
-    var audit = getAudit();
-    audit.unshift({
+    var auditEntry = {
       id: crypto.randomUUID(),
       action: action,
       details: details,
       at: new Date().toISOString(),
-    });
-    localStorage.setItem(AUDIT_KEY, JSON.stringify(audit.slice(0, 400)));
+    };
+
+    if (hasBackendAccess()) {
+      return window.SolarynAPI.addAuditToBackend({
+        action: action,
+        details: details,
+      }).then(function (entry) {
+        var nextAudit = mergeAuditEntries([entry].concat(readCachedAudit()));
+        writeCachedAudit(nextAudit);
+        return entry;
+      });
+    }
+
+    var nextAudit = mergeAuditEntries([auditEntry].concat(readCachedAudit()));
+    writeCachedAudit(nextAudit);
+    return Promise.resolve(auditEntry);
   }
 
   function randInt(max) {
@@ -131,13 +253,12 @@
   }
 
   function addStaff(payload) {
-    var staff = getStaff();
     var nowIso = new Date().toISOString();
-    var record = {
+    var localRecord = {
       id: crypto.randomUUID(),
       username: payload.username,
       position: payload.position,
-      password: payload.password,
+      password: payload.password || generatePassword(),
       challengeCode: payload.challengeCode || generateChallengeCode(),
       challengeExpiresAt: addHours(nowIso, CHALLENGE_EXPIRE_HOURS),
       lastRotatedAt: nowIso,
@@ -145,14 +266,26 @@
       createdAt: nowIso,
       updatedAt: nowIso,
     };
-    staff.push(record);
+
+    if (hasBackendAccess()) {
+      return window.SolarynAPI.addStaffToBackend(localRecord).then(function (record) {
+        var nextStaff = readCachedStaff();
+        nextStaff.push(normalizeRecord(record));
+        writeCachedStaff(nextStaff);
+        return normalizeRecord(record);
+      });
+    }
+
+    var staff = readCachedStaff();
+    staff.push(localRecord);
     saveStaff(staff);
-    addAudit("staff.create", "Created record for " + payload.username + " with challenge code.");
-    return record;
+    return addAudit("staff.create", "Created record for " + payload.username + " with challenge code.").then(function () {
+      return localRecord;
+    });
   }
 
   function updateStaff(id, updates) {
-    var staff = getStaff();
+    var staff = readCachedStaff();
     var updated;
     var next = staff.map(function (record) {
       if (record.id !== id) {
@@ -174,39 +307,73 @@
     });
 
     if (!updated) {
-      return null;
+      return Promise.resolve(null);
+    }
+
+    if (hasBackendAccess()) {
+      return window.SolarynAPI.updateStaffOnBackend(id, updated).then(function (record) {
+        var remoteUpdated = normalizeRecord(record);
+        var remoteStaff = next.map(function (recordItem) {
+          return recordItem.id === id ? remoteUpdated : recordItem;
+        });
+        writeCachedStaff(remoteStaff);
+        return remoteUpdated;
+      });
     }
 
     saveStaff(next);
-    addAudit("staff.update", "Updated record for " + updated.username);
-    return updated;
+    return addAudit("staff.update", "Updated record for " + updated.username).then(function () {
+      return updated;
+    });
   }
 
   function removeStaff(id) {
-    var staff = getStaff();
+    var staff = readCachedStaff();
     var found = staff.find(function (row) {
       return row.id === id;
     });
     if (!found) {
-      return false;
+      return Promise.resolve(false);
     }
     var next = staff.filter(function (row) {
       return row.id !== id;
     });
+
+    if (hasBackendAccess()) {
+      return window.SolarynAPI.deleteStaffFromBackend(id).then(function () {
+        writeCachedStaff(next);
+        return true;
+      });
+    }
+
     saveStaff(next);
-    addAudit("staff.delete", "Deleted record for " + found.username);
-    return true;
+    return addAudit("staff.delete", "Deleted record for " + found.username).then(function () {
+      return true;
+    });
   }
 
   function rotateStaffCredential(id) {
-    var current = getStaff().find(function (row) {
+    var current = readCachedStaff().find(function (row) {
       return row.id === id;
     });
+
     if (!current) {
-      return null;
+      return Promise.resolve(null);
     }
+
+    if (hasBackendAccess()) {
+      return window.SolarynAPI.rotateStaffOnBackend(id).then(function (rotated) {
+        var updated = normalizeRecord(rotated);
+        var nextStaff = readCachedStaff().map(function (record) {
+          return record.id === id ? updated : record;
+        });
+        writeCachedStaff(nextStaff);
+        return updated;
+      });
+    }
+
     var nowIso = new Date().toISOString();
-    var updated = updateStaff(id, {
+    return updateStaff(id, {
       username: current.username,
       position: current.position,
       password: generatePassword(),
@@ -214,9 +381,11 @@
       challengeExpiresAt: addHours(nowIso, CHALLENGE_EXPIRE_HOURS),
       lastRotatedAt: nowIso,
       status: current.status,
+    }).then(function (updated) {
+      return addAudit("staff.rotate", "Rotated password and challenge for " + current.username).then(function () {
+        return updated;
+      });
     });
-    addAudit("staff.rotate", "Rotated password and challenge for " + current.username);
-    return updated;
   }
 
   function stringToBytes(str) {
@@ -269,25 +438,27 @@
   }
 
   function exportEncrypted(passphrase) {
-    var snapshot = {
-      exportedAt: new Date().toISOString(),
-      staff: getStaff(),
-      audit: getAudit(),
-      version: 1,
-    };
-    var plain = stringToBytes(JSON.stringify(snapshot));
-    var salt = crypto.getRandomValues(new Uint8Array(16));
-    var iv = crypto.getRandomValues(new Uint8Array(12));
+    return Promise.all([getStaff(), getAudit()]).then(function (results) {
+      var snapshot = {
+        exportedAt: new Date().toISOString(),
+        staff: results[0],
+        audit: results[1],
+        version: 1,
+      };
+      var plain = stringToBytes(JSON.stringify(snapshot));
+      var salt = crypto.getRandomValues(new Uint8Array(16));
+      var iv = crypto.getRandomValues(new Uint8Array(12));
 
-    return deriveKey(passphrase, salt).then(function (key) {
-      return crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, key, plain).then(function (cipher) {
-        return JSON.stringify({
-          alg: "AES-GCM",
-          kdf: "PBKDF2-SHA256",
-          iterations: 220000,
-          salt: bytesToBase64(salt),
-          iv: bytesToBase64(iv),
-          data: bytesToBase64(new Uint8Array(cipher)),
+      return deriveKey(passphrase, salt).then(function (key) {
+        return crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, key, plain).then(function (cipher) {
+          return JSON.stringify({
+            alg: "AES-GCM",
+            kdf: "PBKDF2-SHA256",
+            iterations: 220000,
+            salt: bytesToBase64(salt),
+            iv: bytesToBase64(iv),
+            data: bytesToBase64(new Uint8Array(cipher)),
+          });
         });
       });
     });
@@ -308,13 +479,31 @@
         if (!snapshot || !Array.isArray(snapshot.staff) || !Array.isArray(snapshot.audit)) {
           throw new Error("Backup payload is missing required fields.");
         }
-        saveStaff(snapshot.staff.map(normalizeRecord));
-        localStorage.setItem(AUDIT_KEY, JSON.stringify(snapshot.audit.slice(0, 400)));
-        addAudit("backup.import", "Imported encrypted backup file.");
-        return {
-          staff: snapshot.staff.length,
-          audit: snapshot.audit.length,
-        };
+        var normalizedStaff = snapshot.staff.map(normalizeRecord);
+        var normalizedAudit = mergeAuditEntries(snapshot.audit);
+
+        if (hasBackendAccess()) {
+          return window.SolarynAPI.importSnapshotToBackend({
+            staff: normalizedStaff,
+            audit: normalizedAudit,
+            replace: true,
+          }).then(function (remoteSnapshot) {
+            cacheRemoteState(remoteSnapshot.staff || [], remoteSnapshot.audit || []);
+            return {
+              staff: normalizedStaff.length,
+              audit: normalizedAudit.length,
+            };
+          });
+        }
+
+        saveStaff(normalizedStaff);
+        writeCachedAudit(normalizedAudit);
+        return addAudit("backup.import", "Imported encrypted backup file.").then(function () {
+          return {
+            staff: normalizedStaff.length,
+            audit: normalizedAudit.length,
+          };
+        });
       });
     });
   }

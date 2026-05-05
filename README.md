@@ -26,3 +26,5 @@ MASTER_PASSWORD='ADMINSOLARYNACCPETEDZEAO' npm start
 ```
 
 Note: GitHub Pages does not run Node.js servers. Host `backend/` on a server platform if you want server-side security.
+
+If you deploy the backend to Railway, set the service root directory to `backend`, add `MASTER_PASSWORD` in Railway variables, deploy, then enter the Railway URL on the login page `Backend URL` field.

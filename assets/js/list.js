@@ -5,6 +5,7 @@
 
   var table = document.getElementById("staff-table");
   var message = document.getElementById("list-message");
+  var staffRecords = [];
 
   function formatTime(iso) {
     return new Date(iso).toLocaleString();
@@ -53,17 +54,23 @@
   }
 
   function render() {
-    var staff = window.SolarynStore.getStaff();
-    if (!staff.length) {
+    if (!staffRecords.length) {
       table.innerHTML = "<tr><td colspan='7'>No staff credentials found. Create records in Password Generator.</td></tr>";
       return;
     }
 
-    table.innerHTML = staff
+    table.innerHTML = staffRecords
       .map(function (record) {
         return rowTemplate(record);
       })
       .join("");
+  }
+
+  function refresh() {
+    return window.SolarynStore.getStaff().then(function (staff) {
+      staffRecords = staff;
+      render();
+    });
   }
 
   table.addEventListener("click", function (event) {
@@ -88,16 +95,28 @@
     }
 
     if (action === "rotate") {
-      window.SolarynStore.rotateStaffCredential(id);
-      message.textContent = "Rotated password and challenge code for this staff account.";
-      render();
+      message.textContent = "Rotating staff credentials...";
+      window.SolarynStore.rotateStaffCredential(id)
+        .then(function () {
+          message.textContent = "Rotated password and challenge code for this staff account.";
+          return refresh();
+        })
+        .catch(function (error) {
+          message.textContent = "Rotate failed: " + error.message;
+        });
       return;
     }
 
     if (action === "delete") {
-      window.SolarynStore.removeStaff(id);
-      message.textContent = "Deleted staff record.";
-      render();
+      message.textContent = "Deleting staff record...";
+      window.SolarynStore.removeStaff(id)
+        .then(function () {
+          message.textContent = "Deleted staff record.";
+          return refresh();
+        })
+        .catch(function (error) {
+          message.textContent = "Delete failed: " + error.message;
+        });
       return;
     }
 
@@ -106,19 +125,27 @@
       return;
     }
 
-    var existing = window.SolarynStore.getStaff().find(function (rowData) {
+    var existing = staffRecords.find(function (rowData) {
       return rowData.id === id;
     });
+    message.textContent = "Updating staff record...";
     window.SolarynStore.updateStaff(id, {
       username: next.username,
       position: next.position,
       password: next.password,
       challengeCode: next.challengeCode,
       status: existing ? existing.status : "active",
-    });
-    message.textContent = "Staff record updated.";
-    render();
+    })
+      .then(function () {
+        message.textContent = "Staff record updated.";
+        return refresh();
+      })
+      .catch(function (error) {
+        message.textContent = "Update failed: " + error.message;
+      });
   });
 
-  render();
+  refresh().catch(function (error) {
+    message.textContent = "Could not load staff records: " + error.message;
+  });
 })();

@@ -40,15 +40,21 @@
       return;
     }
 
+    message.textContent = "Saving staff credential...";
+
     window.SolarynStore.addStaff({
       username: username,
       position: position,
       password: password,
-    });
-
-    assignForm.reset();
-    output.textContent = "Press Generate";
-    message.textContent = "Staff credential saved successfully.";
+    })
+      .then(function () {
+        assignForm.reset();
+        output.textContent = "Press Generate";
+        message.textContent = "Staff credential saved successfully.";
+      })
+      .catch(function (error) {
+        message.textContent = "Save failed: " + error.message;
+      });
   });
 
   generate();

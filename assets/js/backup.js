@@ -26,9 +26,10 @@
       .then(function (payload) {
         var stamp = new Date().toISOString().replace(/[:.]/g, "-");
         download("solaryn-backup-" + stamp + ".json", payload);
-        window.SolarynStore.addAudit("backup.export", "Created encrypted backup file.");
-        message.textContent = "Encrypted backup generated and downloaded.";
-        exportForm.reset();
+        return window.SolarynStore.addAudit("backup.export", "Created encrypted backup file.").then(function () {
+          message.textContent = "Encrypted backup generated and downloaded.";
+          exportForm.reset();
+        });
       })
       .catch(function (error) {
         message.textContent = "Export failed: " + error.message;

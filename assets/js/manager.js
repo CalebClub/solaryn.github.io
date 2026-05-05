@@ -12,10 +12,12 @@
   var message = document.getElementById("manager-message");
   var form = document.getElementById("manager-form");
   var auditList = document.getElementById("audit-list");
+  var staffRecords = [];
+  var auditRecords = [];
 
   function selectedRecord() {
     var id = select.value;
-    return window.SolarynStore.getStaff().find(function (record) {
+    return staffRecords.find(function (record) {
       return record.id === id;
     });
   }
@@ -37,28 +39,26 @@
   }
 
   function renderOptions() {
-    var staff = window.SolarynStore.getStaff();
-    if (!staff.length) {
+    if (!staffRecords.length) {
       select.innerHTML = "<option value=''>No staff records</option>";
       fillForm(null);
       return;
     }
 
-    select.innerHTML = staff
+    select.innerHTML = staffRecords
       .map(function (record) {
         return "<option value='" + record.id + "'>" + record.username + " - " + record.position + "</option>";
       })
       .join("");
-    fillForm(staff[0]);
+    fillForm(staffRecords[0]);
   }
 
   function renderAudit() {
-    var audit = window.SolarynStore.getAudit();
-    if (!audit.length) {
+    if (!auditRecords.length) {
       auditList.innerHTML = "<li>No audit events yet.</li>";
       return;
     }
-    auditList.innerHTML = audit
+    auditList.innerHTML = auditRecords
       .slice(0, 50)
       .map(function (entry) {
         return (
@@ -72,6 +72,15 @@
         );
       })
       .join("");
+  }
+
+  function refresh() {
+    return Promise.all([window.SolarynStore.getStaff(), window.SolarynStore.getAudit()]).then(function (results) {
+      staffRecords = results[0];
+      auditRecords = results[1];
+      renderOptions();
+      renderAudit();
+    });
   }
 
   select.addEventListener("change", function () {
@@ -94,12 +103,19 @@
       message.textContent = "No record selected.";
       return;
     }
-    window.SolarynStore.rotateStaffCredential(current.id);
-    message.textContent = "Rotated password and challenge code.";
-    renderOptions();
-    select.value = current.id;
-    fillForm(selectedRecord());
-    renderAudit();
+    message.textContent = "Rotating password and challenge code...";
+    window.SolarynStore.rotateStaffCredential(current.id)
+      .then(function () {
+        message.textContent = "Rotated password and challenge code.";
+        return refresh();
+      })
+      .then(function () {
+        select.value = current.id;
+        fillForm(selectedRecord());
+      })
+      .catch(function (error) {
+        message.textContent = "Rotation failed: " + error.message;
+      });
   });
 
   form.addEventListener("submit", function (event) {
@@ -110,19 +126,26 @@
       return;
     }
 
+    message.textContent = "Saving staff details...";
+
     window.SolarynStore.updateStaff(current.id, {
       username: username.value.trim(),
       position: position.value.trim(),
       password: password.value.trim(),
       challengeCode: challenge.value.trim(),
       status: current.status,
-    });
-
-    message.textContent = "Staff details updated.";
-    renderOptions();
-    select.value = current.id;
-    fillForm(selectedRecord());
-    renderAudit();
+    })
+      .then(function () {
+        message.textContent = "Staff details updated.";
+        return refresh();
+      })
+      .then(function () {
+        select.value = current.id;
+        fillForm(selectedRecord());
+      })
+      .catch(function (error) {
+        message.textContent = "Update failed: " + error.message;
+      });
   });
 
   document.getElementById("deactivate-btn").addEventListener("click", function () {
@@ -130,18 +153,25 @@
     if (!current) {
       return;
     }
+    message.textContent = "Updating staff status...";
     window.SolarynStore.updateStaff(current.id, {
       username: current.username,
       position: current.position,
       password: current.password,
       challengeCode: current.challengeCode,
       status: "inactive",
-    });
-    message.textContent = "Staff status set to inactive.";
-    renderOptions();
-    select.value = current.id;
-    fillForm(selectedRecord());
-    renderAudit();
+    })
+      .then(function () {
+        message.textContent = "Staff status set to inactive.";
+        return refresh();
+      })
+      .then(function () {
+        select.value = current.id;
+        fillForm(selectedRecord());
+      })
+      .catch(function (error) {
+        message.textContent = "Status update failed: " + error.message;
+      });
   });
 
   document.getElementById("activate-btn").addEventListener("click", function () {
@@ -149,20 +179,28 @@
     if (!current) {
       return;
     }
+    message.textContent = "Updating staff status...";
     window.SolarynStore.updateStaff(current.id, {
       username: current.username,
       position: current.position,
       password: current.password,
       challengeCode: current.challengeCode,
       status: "active",
-    });
-    message.textContent = "Staff status set to active.";
-    renderOptions();
-    select.value = current.id;
-    fillForm(selectedRecord());
-    renderAudit();
+    })
+      .then(function () {
+        message.textContent = "Staff status set to active.";
+        return refresh();
+      })
+      .then(function () {
+        select.value = current.id;
+        fillForm(selectedRecord());
+      })
+      .catch(function (error) {
+        message.textContent = "Status update failed: " + error.message;
+      });
   });
 
-  renderOptions();
-  renderAudit();
+  refresh().catch(function (error) {
+    message.textContent = "Could not load staff data: " + error.message;
+  });
 })();

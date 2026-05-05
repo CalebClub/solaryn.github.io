@@ -159,6 +159,45 @@ select:focus {
   margin-bottom: 0;
 }
 
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.status-chip {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: 0.84rem;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.06);
+  word-break: break-word;
+}
+
+.status-chip::before {
+  content: "";
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 14px currentColor;
+}
+
+.status-online {
+  color: var(--accent);
+}
+
+.status-offline {
+  color: var(--danger);
+}
+
 .tabs {
   display: flex;
   gap: 10px;
@@ -305,5 +344,9 @@ td input[data-field="challengeCode"] {
   .topbar {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .topbar-actions {
+    justify-content: flex-start;
   }
 }

@@ -64,19 +64,48 @@
     var state = getAttemptState();
 
     if (state.lockedUntil > now()) {
-      return {
+      return Promise.resolve({
         ok: false,
         message:
           "Access locked due to failed attempts. Try again in " +
           Math.ceil((state.lockedUntil - now()) / 60000) +
           " minute(s).",
-      };
+      });
     }
 
+    // Try backend authentication first if available
+    if (window.SolarynAPI) {
+      return window.SolarynAPI.login(password)
+        .then(function (data) {
+          // Backend login successful
+          setAuthenticated();
+          setAttemptState({ count: 0, lockedUntil: 0 });
+          return { ok: true, message: "Access granted." };
+        })
+        .catch(function () {
+          // Backend login failed, fall back to local validation
+          if (password === MASTER_PASSWORD) {
+            setAuthenticated();
+            setAttemptState({ count: 0, lockedUntil: 0 });
+            return { ok: true, message: "Access granted (offline mode)." };
+          }
+
+          state.count += 1;
+          if (state.count >= MAX_ATTEMPTS) {
+            state.lockedUntil = now() + LOCKOUT_MS;
+            state.count = 0;
+          }
+          setAttemptState(state);
+
+          return { ok: false, message: "Invalid master password." };
+        });
+    }
+
+    // Fallback if API is not available
     if (password === MASTER_PASSWORD) {
       setAuthenticated();
       setAttemptState({ count: 0, lockedUntil: 0 });
-      return { ok: true, message: "Access granted." };
+      return Promise.resolve({ ok: true, message: "Access granted." });
     }
 
     state.count += 1;
@@ -86,10 +115,13 @@
     }
     setAttemptState(state);
 
-    return { ok: false, message: "Invalid master password." };
+    return Promise.resolve({ ok: false, message: "Invalid master password." });
   }
 
   function logout() {
+    if (window.SolarynAPI) {
+      window.SolarynAPI.clearToken();
+    }
     clearAuthenticated();
     window.location.href = "index.html";
   }
@@ -135,11 +167,22 @@
 
     form.addEventListener("submit", function (event) {
       event.preventDefault();
-      var result = login(input.value.trim());
-      message.textContent = result.message;
-      if (result.ok) {
-        window.location.href = "dashboard.html";
-      }
+      var password = input.value.trim();
+      message.textContent = "Authenticating...";
+      form.style.opacity = "0.5";
+      form.style.pointerEvents = "none";
+
+      login(password).then(function (result) {
+        message.textContent = result.message;
+        form.style.opacity = "1";
+        form.style.pointerEvents = "auto";
+
+        if (result.ok) {
+          setTimeout(function () {
+            window.location.href = "dashboard.html";
+          }, 300);
+        }
+      });
     });
   }
 

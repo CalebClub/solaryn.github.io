@@ -45,6 +45,52 @@ function addAudit(data, action, details) {
   data.audit = data.audit.slice(0, 1000);
 }
 
+function normalizeStaffRow(input) {
+  const now = new Date().toISOString();
+  const updatedAt = String(input.updatedAt || now);
+  const createdAt = String(input.createdAt || updatedAt);
+  const lastRotatedAt = String(input.lastRotatedAt || updatedAt);
+  const challengeExpiresAt = String(
+    input.challengeExpiresAt || new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString()
+  );
+
+  return {
+    id: String(input.id || crypto.randomUUID()),
+    username: String(input.username || "").trim(),
+    position: String(input.position || "").trim(),
+    password: String(input.password || generatePassword()),
+    challengeCode: String(input.challengeCode || generateChallengeCode()),
+    challengeExpiresAt,
+    lastRotatedAt,
+    status: String(input.status || "active"),
+    createdAt,
+    updatedAt,
+  };
+}
+
+function normalizeAuditEntry(input) {
+  return {
+    id: String(input.id || crypto.randomUUID()),
+    action: String(input.action || "system.event"),
+    details: String(input.details || ""),
+    at: String(input.at || new Date().toISOString()),
+  };
+}
+
+function mergeById(currentItems, incomingItems) {
+  const map = new Map();
+
+  currentItems.forEach((item) => {
+    map.set(item.id, item);
+  });
+
+  incomingItems.forEach((item) => {
+    map.set(item.id, item);
+  });
+
+  return Array.from(map.values());
+}
+
 function randInt(max) {
   return crypto.randomInt(0, max);
 }
@@ -217,6 +263,46 @@ app.delete("/api/staff/:id", requireAuth, (req, res) => {
 app.get("/api/audit", requireAuth, (_req, res) => {
   const db = readDb();
   res.json({ audit: db.audit });
+});
+
+app.post("/api/audit", requireAuth, (req, res) => {
+  const action = String(req.body.action || "").trim();
+  const details = String(req.body.details || "").trim();
+
+  if (!action || !details) {
+    res.status(400).json({ error: "action and details are required" });
+    return;
+  }
+
+  const db = readDb();
+  const entry = normalizeAuditEntry({ action, details });
+  db.audit.unshift(entry);
+  db.audit = db.audit.slice(0, 1000);
+  writeDb(db);
+  res.status(201).json(entry);
+});
+
+app.post("/api/import", requireAuth, (req, res) => {
+  const incomingStaff = Array.isArray(req.body.staff) ? req.body.staff : [];
+  const incomingAudit = Array.isArray(req.body.audit) ? req.body.audit : [];
+  const replace = req.body.replace === true;
+
+  const normalizedStaff = incomingStaff
+    .map(normalizeStaffRow)
+    .filter((row) => row.username && row.position);
+  const normalizedAudit = incomingAudit.map(normalizeAuditEntry);
+
+  const db = readDb();
+  db.staff = replace ? normalizedStaff : mergeById(db.staff, normalizedStaff);
+  db.audit = replace ? normalizedAudit : mergeById(db.audit, normalizedAudit);
+  db.audit.sort((left, right) => new Date(right.at).getTime() - new Date(left.at).getTime());
+  addAudit(db, replace ? "backup.import" : "system.seed", replace ? "Imported snapshot into backend." : "Seeded backend from cached browser data.");
+  writeDb(db);
+
+  res.json({
+    staff: db.staff,
+    audit: db.audit,
+  });
 });
 
 app.listen(PORT, () => {
