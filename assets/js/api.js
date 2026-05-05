@@ -2,7 +2,7 @@
   "use strict";
 
   // Configuration - adjust this to match your backend URL
-  var BACKEND_URL = localStorage.getItem("solaryn_backend_url") || "http://localhost:8787";
+  var BACKEND_URL = localStorage.getItem("solaryn_backend_url") || "postgresql://staff_j1n0_user:EKLbzr97mQh9btU8JQ1EMfT9zvdQumh6@dpg-d7skp7ok1i2s739s6t9g-a.virginia-postgres.render.com/staff_j1n0";
   var TOKEN_KEY = "solaryn_backend_token";
   var TOKEN_EXPIRY_KEY = "solaryn_backend_token_expiry";
 
